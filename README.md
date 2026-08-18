@@ -3,7 +3,7 @@
 ![Status](https://img.shields.io/badge/status-WIP-orange)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![M1](https://img.shields.io/badge/M1-scaffold-green)
-![M2](https://img.shields.io/badge/M2-ingestion-lightgrey)
+![M2](https://img.shields.io/badge/M2-ingestion-green)
 ![M3](https://img.shields.io/badge/M3-graph--core-lightgrey)
 ![M4](https://img.shields.io/badge/M4-tools-lightgrey)
 ![M5](https://img.shields.io/badge/M5-agent--loop-lightgrey)
@@ -11,7 +11,7 @@
 ![M7](https://img.shields.io/badge/M7-cytoscape-lightgrey)
 ![M8](https://img.shields.io/badge/M8-polish-lightgrey)
 
-> M1 scaffold shipped. Backend and frontend boot; graph ingestion, agent loop, and UI are not yet built.
+> M2 ingestion shipped. Tree-sitter parses Python and JS/TS into typed `Symbol` objects; `ingest_repo()` walks a directory. Graph building, agent loop, and UI are not yet built.
 
 ---
 
@@ -31,7 +31,7 @@ The result is an answer that cites exact files and functions, with a live graph 
 
 ---
 
-## What works — M1
+## What works — M2
 
 | Area | Detail |
 |---|---|
@@ -40,9 +40,12 @@ The result is an answer that cites exact files and functions, with a live graph 
 | Frontend scaffold | Vite 6 + React 19 + TypeScript; `pnpm dev` starts the dev server on port 5173 |
 | Linting / formatting | ruff-format + ruff lint on all backend Python; prettier on frontend TS/JSON/CSS |
 | Pre-commit hooks | Both linters run on commit via `.pre-commit-config.yaml` |
+| **Code ingestion** | `codegraph.ingest` walks a repo with `pathlib`, parses `.py` / `.ts` / `.js` files using `tree-sitter`, and emits typed `Symbol` dataclasses (`File`, `Class`, `Function`, `Method`) with file path and 1-indexed line spans |
+| **Ingest CLI** | `python -m codegraph.ingest <path>` prints a JSON array of all symbols |
+| **Tests** | 10 pytest tests against fixture files covering Python and TS parsing, line spans, hidden-dir skipping, and `ingest_repo()` |
 | License | MIT |
 
-Everything else listed in the architecture and roadmap sections is planned, not built.
+Agent loop, graph building, and UI are not yet built.
 
 ---
 
@@ -70,7 +73,7 @@ flowchart LR
 
 ## Quickstart
 
-The backend and frontend scaffolds run independently. No graph or agent functionality is wired up yet.
+Code ingestion is functional. Graph building, agent loop, and UI are not yet built.
 
 ```bash
 # Backend
@@ -92,6 +95,12 @@ cd backend
 uv run pytest
 ```
 
+```bash
+# Ingest a repo and print symbols as JSON
+cd backend
+uv run python -m codegraph.ingest /path/to/any/repo
+```
+
 Docker Compose is a stub — Dockerfiles are not yet written:
 
 ```bash
@@ -108,9 +117,18 @@ codegraph-agent/
 │   ├── pyproject.toml         # uv-managed; ruff + pytest configured
 │   └── src/codegraph/
 │       ├── __init__.py
-│       └── main.py            # FastAPI app + /health endpoint
+│       ├── main.py            # FastAPI app + /health endpoint
+│       └── ingest/            # M2: tree-sitter ingestion
+│           ├── __init__.py    # exports ingest_repo()
+│           ├── __main__.py    # CLI: python -m codegraph.ingest <path>
+│           ├── models.py      # Symbol dataclass
+│           ├── parsers.py     # parse_python(), parse_typescript()
+│           └── walker.py      # ingest_repo() directory walker
 │   └── tests/
-│       └── test_health.py
+│       ├── test_health.py
+│       ├── test_ingest.py     # 10 tests for M2
+│       └── fixtures/
+│           └── sample_repo/   # sample.py + utils.ts + .hidden/
 ├── frontend/                  # Vite + React + TypeScript
 │   ├── package.json
 │   ├── vite.config.ts
