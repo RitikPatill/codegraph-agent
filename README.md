@@ -4,14 +4,14 @@
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![M1](https://img.shields.io/badge/M1-scaffold-green)
 ![M2](https://img.shields.io/badge/M2-ingestion-green)
-![M3](https://img.shields.io/badge/M3-graph--core-lightgrey)
+![M3](https://img.shields.io/badge/M3-graph--core-green)
 ![M4](https://img.shields.io/badge/M4-tools-lightgrey)
 ![M5](https://img.shields.io/badge/M5-agent--loop-lightgrey)
 ![M6](https://img.shields.io/badge/M6-streaming--ui-lightgrey)
 ![M7](https://img.shields.io/badge/M7-cytoscape-lightgrey)
 ![M8](https://img.shields.io/badge/M8-polish-lightgrey)
 
-> M2 ingestion shipped. Tree-sitter parses Python and JS/TS into typed `Symbol` objects; `ingest_repo()` walks a directory. Graph building, agent loop, and UI are not yet built.
+> M3 graph core shipped. `build_graph()` converts `Symbol` lists into a NetworkX `DiGraph` with typed nodes (`File`, `Class`, `Function`, `Method`) and edges (`CONTAINS`, `DEFINES`, `IMPORTS`, `CALLS`, `INHERITS`). Graphs persist to/from JSON. `python -m codegraph.graph <kg.json>` inspects any saved graph. Agent loop and UI are not yet built.
 
 ---
 
@@ -31,7 +31,7 @@ The result is an answer that cites exact files and functions, with a live graph 
 
 ---
 
-## What works — M2
+## What works — M3
 
 | Area | Detail |
 |---|---|
@@ -42,10 +42,13 @@ The result is an answer that cites exact files and functions, with a live graph 
 | Pre-commit hooks | Both linters run on commit via `.pre-commit-config.yaml` |
 | **Code ingestion** | `codegraph.ingest` walks a repo with `pathlib`, parses `.py` / `.ts` / `.js` files using `tree-sitter`, and emits typed `Symbol` dataclasses (`File`, `Class`, `Function`, `Method`) with file path and 1-indexed line spans |
 | **Ingest CLI** | `python -m codegraph.ingest <path>` prints a JSON array of all symbols |
-| **Tests** | 10 pytest tests against fixture files covering Python and TS parsing, line spans, hidden-dir skipping, and `ingest_repo()` |
+| **Knowledge graph** | `codegraph.graph.build_graph(symbols, repo_root)` builds a `networkx.DiGraph` with typed nodes and 5 edge kinds: `CONTAINS`, `DEFINES`, `IMPORTS` (Python, best-effort), `CALLS` (intra-file regex), `INHERITS` (Python) |
+| **Graph persistence** | `save_graph(g, path)` / `load_graph(path)` round-trip via `nx.node_link_data` JSON (atomic write) |
+| **KG-inspect CLI** | `python -m codegraph.graph <kg.json>` prints node/edge counts by type and samples 5 nodes + 5 edges |
+| **Tests** | 21 pytest tests: 10 for M2 ingestion + 10 for M3 graph (nodes, edges, persistence round-trip, CALLS, INHERITS) + 1 health |
 | License | MIT |
 
-Agent loop, graph building, and UI are not yet built.
+Agent loop and UI are not yet built.
 
 ---
 
@@ -73,7 +76,7 @@ flowchart LR
 
 ## Quickstart
 
-Code ingestion is functional. Graph building, agent loop, and UI are not yet built.
+Code ingestion and graph building are functional. Agent loop and UI are not yet built.
 
 ```bash
 # Backend
@@ -101,6 +104,19 @@ cd backend
 uv run python -m codegraph.ingest /path/to/any/repo
 ```
 
+```bash
+# Build a knowledge graph and save it, then inspect it
+cd backend
+uv run python -c "
+from codegraph.graph import build_graph, save_graph
+from codegraph.ingest import ingest_repo
+symbols = ingest_repo('/path/to/any/repo')
+g = build_graph(symbols, '/path/to/any/repo')
+save_graph(g, 'kg.json')
+"
+uv run python -m codegraph.graph kg.json
+```
+
 Docker Compose is a stub — Dockerfiles are not yet written:
 
 ```bash
@@ -115,18 +131,24 @@ docker compose up  # not functional yet
 codegraph-agent/
 ├── backend/                   # Python / FastAPI
 │   ├── pyproject.toml         # uv-managed; ruff + pytest configured
-│   └── src/codegraph/
+│   ├── src/codegraph/
 │       ├── __init__.py
 │       ├── main.py            # FastAPI app + /health endpoint
-│       └── ingest/            # M2: tree-sitter ingestion
-│           ├── __init__.py    # exports ingest_repo()
-│           ├── __main__.py    # CLI: python -m codegraph.ingest <path>
-│           ├── models.py      # Symbol dataclass
-│           ├── parsers.py     # parse_python(), parse_typescript()
-│           └── walker.py      # ingest_repo() directory walker
+│       ├── ingest/            # M2: tree-sitter ingestion
+│       │   ├── __init__.py    # exports ingest_repo()
+│       │   ├── __main__.py    # CLI: python -m codegraph.ingest <path>
+│       │   ├── models.py      # Symbol dataclass
+│       │   ├── parsers.py     # parse_python(), parse_typescript()
+│       │   └── walker.py      # ingest_repo() directory walker
+│       └── graph/             # M3: knowledge graph
+│           ├── __init__.py    # exports build_graph, save_graph, load_graph
+│           ├── __main__.py    # CLI: python -m codegraph.graph <kg.json>
+│           ├── builder.py     # build_graph() — nodes + 5 edge kinds
+│           └── persistence.py # save_graph() / load_graph() JSON round-trip
 │   └── tests/
 │       ├── test_health.py
 │       ├── test_ingest.py     # 10 tests for M2
+│       ├── test_graph.py      # 10 tests for M3
 │       └── fixtures/
 │           └── sample_repo/   # sample.py + utils.ts + .hidden/
 ├── frontend/                  # Vite + React + TypeScript
