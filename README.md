@@ -5,13 +5,13 @@
 ![M1](https://img.shields.io/badge/M1-scaffold-green)
 ![M2](https://img.shields.io/badge/M2-ingestion-green)
 ![M3](https://img.shields.io/badge/M3-graph--core-green)
-![M4](https://img.shields.io/badge/M4-tools-lightgrey)
-![M5](https://img.shields.io/badge/M5-agent--loop-lightgrey)
+![M4](https://img.shields.io/badge/M4-tools-green)
+![M5](https://img.shields.io/badge/M5-agent--loop-green)
 ![M6](https://img.shields.io/badge/M6-streaming--ui-lightgrey)
 ![M7](https://img.shields.io/badge/M7-cytoscape-lightgrey)
 ![M8](https://img.shields.io/badge/M8-polish-lightgrey)
 
-> M3 graph core shipped. `build_graph()` converts `Symbol` lists into a NetworkX `DiGraph` with typed nodes (`File`, `Class`, `Function`, `Method`) and edges (`CONTAINS`, `DEFINES`, `IMPORTS`, `CALLS`, `INHERITS`). Graphs persist to/from JSON. `python -m codegraph.graph <kg.json>` inspects any saved graph. Agent loop and UI are not yet built.
+> M4 graph tools + agent loop shipped. Seven pure-Python graph query tools (`find_definition`, `find_callers`, `find_callees`, `neighborhood`, `shortest_path`, `search_symbols`, `read_source`) are implemented in `codegraph/tools.py` and covered by 21 unit tests. `codegraph/agent.py` drives a multi-turn Claude tool-use loop via `client.messages.create`, yielding structured `tool_call`, `tool_result`, and `text_delta` events. Requires `ANTHROPIC_API_KEY`. WebSocket UI is not yet built.
 
 ---
 
@@ -31,7 +31,7 @@ The result is an answer that cites exact files and functions, with a live graph 
 
 ---
 
-## What works — M3
+## What works — M5
 
 | Area | Detail |
 |---|---|
@@ -45,10 +45,12 @@ The result is an answer that cites exact files and functions, with a live graph 
 | **Knowledge graph** | `codegraph.graph.build_graph(symbols, repo_root)` builds a `networkx.DiGraph` with typed nodes and 5 edge kinds: `CONTAINS`, `DEFINES`, `IMPORTS` (Python, best-effort), `CALLS` (intra-file regex), `INHERITS` (Python) |
 | **Graph persistence** | `save_graph(g, path)` / `load_graph(path)` round-trip via `nx.node_link_data` JSON (atomic write) |
 | **KG-inspect CLI** | `python -m codegraph.graph <kg.json>` prints node/edge counts by type and samples 5 nodes + 5 edges |
-| **Tests** | 21 pytest tests: 10 for M2 ingestion + 10 for M3 graph (nodes, edges, persistence round-trip, CALLS, INHERITS) + 1 health |
+| **Graph query tools** | 7 pure-Python functions in `codegraph/tools.py`: `find_definition`, `find_callers`, `find_callees`, `neighborhood`, `shortest_path`, `search_symbols`, `read_source` — no Anthropic dependency, fully unit-tested |
+| **Claude agent loop** | `codegraph/agent.py` exposes `run_agent(question, graph, repo_root)` → sync generator yielding `tool_call`, `tool_result`, `text_delta` events; drives multi-turn tool-use until `end_turn` |
+| **Tests** | 42 pytest tests: 10 M2 + 10 M3 + 21 M4 tools + 1 health |
 | License | MIT |
 
-Agent loop and UI are not yet built.
+WebSocket UI is not yet built. Set `ANTHROPIC_API_KEY` before using the agent loop.
 
 ---
 
@@ -70,13 +72,13 @@ flowchart LR
 
 **Edge types:** `IMPORTS`, `DEFINES`, `CALLS`, `INHERITS`, `CONTAINS`
 
-**Agent tools (planned):** `find_definition`, `find_callers`, `find_callees`, `neighborhood`, `shortest_path`, `search_symbols`, `read_source`
+**Agent tools:** `find_definition`, `find_callers`, `find_callees`, `neighborhood`, `shortest_path`, `search_symbols`, `read_source`
 
 ---
 
 ## Quickstart
 
-Code ingestion and graph building are functional. Agent loop and UI are not yet built.
+Code ingestion, graph building, graph query tools, and the Claude agent loop are functional. WebSocket UI is not yet built.
 
 ```bash
 # Backend
@@ -140,15 +142,18 @@ codegraph-agent/
 │       │   ├── models.py      # Symbol dataclass
 │       │   ├── parsers.py     # parse_python(), parse_typescript()
 │       │   └── walker.py      # ingest_repo() directory walker
-│       └── graph/             # M3: knowledge graph
-│           ├── __init__.py    # exports build_graph, save_graph, load_graph
-│           ├── __main__.py    # CLI: python -m codegraph.graph <kg.json>
-│           ├── builder.py     # build_graph() — nodes + 5 edge kinds
-│           └── persistence.py # save_graph() / load_graph() JSON round-trip
+│       ├── graph/             # M3: knowledge graph
+│       │   ├── __init__.py    # exports build_graph, save_graph, load_graph
+│       │   ├── __main__.py    # CLI: python -m codegraph.graph <kg.json>
+│       │   ├── builder.py     # build_graph() — nodes + 5 edge kinds
+│       │   └── persistence.py # save_graph() / load_graph() JSON round-trip
+│       ├── tools.py           # M4: 7 pure graph query functions (no Anthropic dep)
+│       └── agent.py           # M4: Claude tool-use loop → run_agent() generator
 │   └── tests/
 │       ├── test_health.py
 │       ├── test_ingest.py     # 10 tests for M2
 │       ├── test_graph.py      # 10 tests for M3
+│       ├── test_tools.py      # 21 tests for M4 graph tools
 │       └── fixtures/
 │           └── sample_repo/   # sample.py + utils.ts + .hidden/
 ├── frontend/                  # Vite + React + TypeScript
