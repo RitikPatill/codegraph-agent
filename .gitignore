@@ -26,3 +26,6 @@ frontend/dist/
 
 # Docker
 *.log
+
+# CodeGraph cache
+backend/.kg_cache/
