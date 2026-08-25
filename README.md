@@ -7,11 +7,11 @@
 ![M3](https://img.shields.io/badge/M3-graph--core-green)
 ![M4](https://img.shields.io/badge/M4-tools-green)
 ![M5](https://img.shields.io/badge/M5-streaming--api-green)
-![M6](https://img.shields.io/badge/M6-streaming--ui-lightgrey)
+![M6](https://img.shields.io/badge/M6-cytoscape--ui-green)
 ![M7](https://img.shields.io/badge/M7-cytoscape-lightgrey)
 ![M8](https://img.shields.io/badge/M8-polish-lightgrey)
 
-> M5 streaming API shipped. `POST /ingest`, `GET /graph`, and `WebSocket /chat` are live. The server pre-indexes the bundled `sample_repo/` on startup (cached to `.kg_cache/`). The `/chat` WebSocket streams `tool_call` (with a `touched_nodes` field), `tool_result`, `text_delta`, and `done` events from the Claude agent loop to the browser. Requires `ANTHROPIC_API_KEY` only for `/chat`; all other routes work without it. WebSocket UI (Cytoscape graph panel) is not yet built.
+> M6 React UI shipped. Two-pane layout: chat on the left, Cytoscape.js knowledge graph on the right. Nodes are colour-coded by kind (File/Class/Function/Method). When the agent calls a graph tool, the touched nodes pulse red for 2 s. Tool calls render as collapsible cards in the chat. Graph data is fetched from `GET /api/graph` on mount; chat runs over `WebSocket /ws/chat`. Requires `ANTHROPIC_API_KEY` for the chat endpoint.
 
 ---
 
@@ -31,7 +31,7 @@ The result is an answer that cites exact files and functions, with a live graph 
 
 ---
 
-## What works — M5
+## What works — M6
 
 | Area | Detail |
 |---|---|
@@ -52,7 +52,10 @@ The result is an answer that cites exact files and functions, with a live graph 
 | **`WebSocket /chat`** | Accepts `{"question": "..."}`, runs agent in a daemon thread, bridges events via `queue.Queue`, streams `tool_call` (each frame includes a `touched_nodes: list[str]` of graph node IDs visited by that tool) / `tool_result` / `text_delta` / `done` JSON frames |
 | **Startup pre-index** | Server indexes `backend/sample_repo/` on boot (cached); demo works without any user action |
 | **Sample repo** | `backend/sample_repo/` — a self-contained "web framework slice" (`depends.py`, `models.py`, `router.py`, `app.py`) that makes the canonical question *"What would break if I removed Depends?"* answerable |
-| **Tests** | 50 pytest tests: 10 M2 + 10 M3 + 21 M4 tools + 1 health + 8 API tests |
+| **React UI** | Two-pane layout: chat panel (left, 40 %) + Cytoscape graph panel (right). Nodes colour-coded by kind. `touched_nodes` events pulse nodes red for 2 s. Tool calls render as collapsible cards. |
+| **`useChat` hook** | Manages WebSocket lifecycle + message accumulation via `useReducer`; dispatches `tool_call`, `tool_result`, `text_delta`, `done` frames |
+| **GraphPanel** | Imperative Cytoscape.js via `useRef`; `cose` layout; node colours: File=indigo, Class=green, Function=orange, Method=yellow; `.highlighted` class (red border, 2 s) applied/removed on each `touchedNodes` change; in-panel kind legend rendered top-right |
+| **Tests** | 51 pytest tests: 10 M2 + 10 M3 + 21 M4 tools + 1 health + 9 API tests (added `test_graph_node_link_format`) |
 | License | MIT |
 
 Set `ANTHROPIC_API_KEY` before connecting to `WebSocket /chat`. All HTTP routes work without it.
@@ -83,7 +86,7 @@ flowchart LR
 
 ## Quickstart
 
-All API routes are functional. Set `ANTHROPIC_API_KEY` to use the `/chat` WebSocket. WebSocket UI (Cytoscape panel) is not yet built.
+Full stack is functional. Set `ANTHROPIC_API_KEY` to enable the chat endpoint.
 
 ```bash
 # Backend — auto-indexes sample_repo on startup
@@ -97,9 +100,9 @@ uv run uvicorn codegraph.main:app --reload
 
 # Frontend (separate terminal)
 cd frontend
-pnpm install
+pnpm install          # installs react, cytoscape, vite, typescript
 pnpm dev
-# → http://localhost:5173
+# → http://localhost:5173  (two-pane UI: chat + live graph)
 ```
 
 ```bash
@@ -167,12 +170,20 @@ codegraph-agent/
 │       └── fixtures/
 │           └── sample_repo/   # sample.py + utils.ts + .hidden/
 ├── frontend/                  # Vite + React + TypeScript
-│   ├── package.json
-│   ├── vite.config.ts
+│   ├── package.json           # cytoscape + @types/cytoscape added in M6
+│   ├── vite.config.ts         # /api and /ws proxy with path rewrite
 │   ├── tsconfig.json
 │   └── src/
+│       ├── index.css          # minimal reset
 │       ├── main.tsx
-│       └── App.tsx
+│       ├── App.tsx            # root: fetches /api/graph, wires chat + graph panels
+│       ├── types.ts           # GraphNode, GraphEdge, GraphData, ChatMessage
+│       ├── hooks/
+│       │   └── useChat.ts     # WebSocket lifecycle + useReducer message state
+│       └── components/
+│           ├── ChatPanel.tsx  # message list, input, auto-scroll
+│           ├── GraphPanel.tsx # Cytoscape.js imperative init + highlight animation
+│           └── ToolCallCard.tsx # collapsible card for agent tool calls
 ├── docker-compose.yml         # stub
 ├── .pre-commit-config.yaml
 ├── .gitignore

@@ -90,6 +90,29 @@ def test_graph_no_graph_404():
     assert resp.status_code == 404
 
 
+def test_graph_node_link_format():
+    """GET /graph returns the node/edge schema the M6 frontend depends on.
+
+    Every node must have 'id', 'kind', 'name'.
+    Every edge must have 'source', 'target', 'kind'.
+    """
+    with TestClient(app) as client:
+        client.post("/ingest", json={"repo_path": str(_FIXTURE_REPO)})
+        resp = client.get("/graph")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "nodes" in data, "response must contain 'nodes' key"
+    assert "edges" in data, "response must contain 'edges' key"
+    for node in data["nodes"]:
+        assert "id" in node, f"node missing 'id': {node}"
+        assert "kind" in node, f"node missing 'kind': {node}"
+        assert "name" in node, f"node missing 'name': {node}"
+    for edge in data["edges"]:
+        assert "source" in edge, f"edge missing 'source': {edge}"
+        assert "target" in edge, f"edge missing 'target': {edge}"
+        assert "kind" in edge, f"edge missing 'kind': {edge}"
+
+
 # ---------------------------------------------------------------------------
 # WebSocket /chat
 # ---------------------------------------------------------------------------
