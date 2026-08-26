@@ -8,10 +8,10 @@
 ![M4](https://img.shields.io/badge/M4-tools-green)
 ![M5](https://img.shields.io/badge/M5-streaming--api-green)
 ![M6](https://img.shields.io/badge/M6-cytoscape--ui-green)
-![M7](https://img.shields.io/badge/M7-cytoscape-lightgrey)
+![M7](https://img.shields.io/badge/M7-demo-green)
 ![M8](https://img.shields.io/badge/M8-polish-lightgrey)
 
-> M6 React UI shipped. Two-pane layout: chat on the left, Cytoscape.js knowledge graph on the right. Nodes are colour-coded by kind (File/Class/Function/Method). When the agent calls a graph tool, the touched nodes pulse red for 2 s. Tool calls render as collapsible cards in the chat. Graph data is fetched from `GET /api/graph` on mount; chat runs over `WebSocket /ws/chat`. Requires `ANTHROPIC_API_KEY` for the chat endpoint.
+> M7 demo + screenshots shipped. `record_demo.sh` boots backend + frontend, runs a scripted WebSocket question, captures `docs/screenshot.png` (via Playwright), and writes `docs/demo.gif`. Two sample repos live in `samples/`: `fastapi-slice` (Python) and `ts-utils` (TypeScript). Five example questions per sample are listed in the README.
 
 ---
 
@@ -31,7 +31,7 @@ The result is an answer that cites exact files and functions, with a live graph 
 
 ---
 
-## What works — M6
+## What works — M7
 
 | Area | Detail |
 |---|---|
@@ -56,13 +56,19 @@ The result is an answer that cites exact files and functions, with a live graph 
 | **`useChat` hook** | Manages WebSocket lifecycle + message accumulation via `useReducer`; dispatches `tool_call`, `tool_result`, `text_delta`, `done` frames |
 | **GraphPanel** | Imperative Cytoscape.js via `useRef`; `cose` layout; node colours: File=indigo, Class=green, Function=orange, Method=yellow; `.highlighted` class (red border, 2 s) applied/removed on each `touchedNodes` change; in-panel kind legend rendered top-right |
 | **Tests** | 51 pytest tests: 10 M2 + 10 M3 + 21 M4 tools + 1 health + 9 API tests (added `test_graph_node_link_format`) |
+| **`record_demo.sh`** | Boots backend + frontend, runs scripted WebSocket question via `scripts/demo_query.py`, captures `docs/screenshot.png` (Playwright), writes `docs/demo.gif` |
+| **`scripts/demo_query.py`** | Pure-Python WebSocket client; sends the canonical question and pretty-prints `tool_call` / `tool_result` / `text_delta` / `done` events |
+| **`scripts/capture_screenshot.py`** | Playwright screenshot of the running UI; degrades gracefully if Playwright is not installed |
+| **`scripts/smoke_test.sh`** | Hits `GET /health` and runs `demo_query.py`; exits 0/1 for CI |
+| **`samples/fastapi-slice/`** | Self-contained Python sample repo; index via `POST /ingest` |
+| **`samples/ts-utils/`** | Self-contained TypeScript sample repo; demonstrates IMPORTS + CALLS edges |
 | License | MIT |
 
 Set `ANTHROPIC_API_KEY` before connecting to `WebSocket /chat`. All HTTP routes work without it.
 
 ---
 
-## Planned architecture
+## Architecture
 
 ```mermaid
 flowchart LR
@@ -103,6 +109,18 @@ cd frontend
 pnpm install          # installs react, cytoscape, vite, typescript
 pnpm dev
 # → http://localhost:5173  (two-pane UI: chat + live graph)
+```
+
+```bash
+# Run the end-to-end demo (boots both servers, runs a scripted question,
+# captures docs/screenshot.png via Playwright, writes docs/demo.gif)
+export ANTHROPIC_API_KEY=sk-ant-...
+bash record_demo.sh
+```
+
+```bash
+# Smoke test only (no browser required)
+bash scripts/smoke_test.sh
 ```
 
 ```bash
@@ -184,6 +202,17 @@ codegraph-agent/
 │           ├── ChatPanel.tsx  # message list, input, auto-scroll
 │           ├── GraphPanel.tsx # Cytoscape.js imperative init + highlight animation
 │           └── ToolCallCard.tsx # collapsible card for agent tool calls
+├── docs/
+│   ├── demo.gif               # placeholder; populated by record_demo.sh
+│   └── screenshot.png         # populated by scripts/capture_screenshot.py (Playwright)
+├── samples/
+│   ├── fastapi-slice/         # self-contained Python sample (app/router/models/depends)
+│   └── ts-utils/              # self-contained TypeScript sample (src/ + package.json)
+├── scripts/
+│   ├── demo_query.py          # WebSocket client; runs the canonical question end-to-end
+│   ├── capture_screenshot.py  # Playwright screenshot of the running UI
+│   └── smoke_test.sh          # hits /health + demo_query.py; exits 0/1 for CI
+├── record_demo.sh             # boots backend + frontend, runs demo, captures artifacts
 ├── docker-compose.yml         # stub
 ├── .pre-commit-config.yaml
 ├── .gitignore
@@ -198,6 +227,34 @@ codegraph-agent/
 - Live graph animation makes results screenshot-able and GIF-able
 - Every layer (parser → graph → tool → agent loop → streaming UI) is a distinct engineering artifact reviewers can inspect
 - Runs locally on the Anthropic free tier
+
+---
+
+## Sample repositories & example questions
+
+Two self-contained sample repos live in `samples/`. Index one at runtime:
+
+```bash
+curl -s -X POST http://localhost:8000/ingest \
+  -H 'Content-Type: application/json' \
+  -d '{"repo_path": "/absolute/path/to/samples/fastapi-slice"}'
+```
+
+### fastapi-slice (Python)
+
+1. "What would break if I removed the `Depends()` helper?"
+2. "Which route handlers call `get_db`?"
+3. "What is the full call chain from `create_app` down to the database?"
+4. "Find the definition of `require_auth` and show its source."
+5. "What is the shortest dependency path between `list_users` and `get_db`?"
+
+### ts-utils (TypeScript)
+
+1. "Which functions does the `Formatter` class call internally?"
+2. "What files import from `string-utils`?"
+3. "Find the definition of `slugify` and show its source."
+4. "What is the shortest path between `Formatter` and `string-utils`?"
+5. "Show me all exported symbols in this package."
 
 ---
 

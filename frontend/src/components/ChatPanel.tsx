@@ -31,14 +31,16 @@ export function ChatPanel({ messages, status, onSend, style }: ChatPanelProps) {
   }
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100%',
-      borderRight: '1px solid #2a2a3a',
-      background: '#13131f',
-      ...style,
-    }}>
+    <div
+      data-status={status}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        borderRight: '1px solid #2a2a3a',
+        background: '#13131f',
+        ...style,
+      }}>
       {/* Header */}
       <div style={{
         padding: '12px 16px',
