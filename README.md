@@ -1,5 +1,9 @@
 # CodeGraph Agent
 
+
+> **Video walkthrough:** https://youtu.be/ZZ4PsEB4Jes
+> **60-second overview:** https://youtu.be/XCtlmd-hqGE
+
 > An agent that answers architectural questions about any codebase by planning traversals over a live code knowledge graph, with a visual reasoning UI.
 
 <!-- TODO: replace with a 5-10 second demo gif. Record with ScreenToGif on
